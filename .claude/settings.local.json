@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python:*)",
+      "Bash(pip install:*)",
+      "Bash(pkill -f \"python server.py\")",
+      "Bash(pkill -f \"uvicorn server:app\")",
+      "Bash(curl -s http://localhost:8000/)",
+      "Bash(curl -s http://localhost:8000/api/reports)",
+      "Bash(python3 -m json.tool)"
+    ]
+  }
+}

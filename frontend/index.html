@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RedNote 市场情报智能体</title>
+  <meta name="description" content="基于 LangGraph + GPT-4o 的小红书市场需求挖掘智能体，自动搜索爆款帖子、抓取评论、提炼用户痛点，生成专业市场调研报告。" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+
+<!-- ═══════════════════ APP SHELL ═══════════════════ -->
+<div class="app">
+
+  <!-- ── SIDEBAR ─────────────────────────────────────── -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-logo">
+        <span class="logo-icon">🧠</span>
+        <span class="logo-text">RedNote Agent</span>
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-section-title">历史报告</div>
+      <div class="report-list" id="report-list">
+        <div class="report-list-empty">
+          <span>暂无报告</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="sidebar-footer">
+      <div class="sidebar-footer-text">由 LangGraph + GPT-4o 驱动</div>
+    </div>
+  </aside>
+
+  <!-- ── MAIN CONTENT ─────────────────────────────────── -->
+  <main class="main">
+
+    <!-- Top Header Bar -->
+    <header class="topbar">
+      <button class="sidebar-toggle" id="sidebar-toggle" title="切换侧边栏">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
+        </svg>
+      </button>
+      <div class="topbar-title">
+        <span class="topbar-brand">市场情报中心</span>
+        <span class="topbar-sub">Powered by Xiaohongshu × AI</span>
+      </div>
+      <div class="topbar-status" id="topbar-status">
+        <span class="status-dot idle"></span>
+        <span class="status-text">就绪</span>
+      </div>
+      <button class="settings-btn" id="settings-btn" onclick="toggleSettings()" title="Cookie 设置">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="3"/>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+        </svg>
+      </button>
+    </header>
+
+    <!-- Cookie 设置面板 -->
+    <div class="settings-panel hidden" id="settings-panel">
+      <div class="settings-inner">
+        <div class="settings-title">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+            <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+          </svg>
+          小红书 Cookie 配置
+        </div>
+        <p class="settings-desc">
+          在浏览器登录小红书后，按 F12 打开开发者工具，在网络请求中找到 Cookie 字段并粘贴到此处。<br/>
+          Cookie 仅保存在您的本地浏览器中，不会上传至服务器。
+        </p>
+        <textarea
+          id="cookie-input"
+          class="cookie-textarea"
+          placeholder="粘贴您的小红书 Cookie，例如：abRequestId=xxx; loadts=xxx; ..."
+          rows="5"
+        ></textarea>
+        <div class="settings-actions">
+          <span class="cookie-status" id="cookie-status"></span>
+          <button class="action-btn primary" onclick="saveCookies()">保存</button>
+          <button class="action-btn secondary" onclick="clearCookies()">清除</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Content Area -->
+    <div class="content-area">
+
+      <!-- ① 搜索入口面板 -->
+      <section class="hero-section" id="hero-section">
+        <div class="hero-badge">
+          <span class="badge-dot"></span>
+          小红书 × AI 需求挖掘
+        </div>
+        <h1 class="hero-title">发现产品的真实市场需求</h1>
+        <p class="hero-subtitle">
+          输入您想调研的产品或行业，智能体将自动抓取小红书热门帖子评论，<br/>
+          提炼用户真实痛点与潜在需求，生成专业市场调研报告。
+        </p>
+        <div class="search-card" id="search-card">
+          <div class="search-input-wrapper">
+            <span class="search-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+              </svg>
+            </span>
+            <input
+              id="query-input"
+              type="text"
+              placeholder="例如：降噪耳机 / 笔记本支架 / 人体工学椅..."
+              autocomplete="off"
+            />
+          </div>
+          <button class="start-btn" id="start-btn" onclick="startResearch()">
+            <span class="btn-text">开始调研</span>
+            <span class="btn-icon">→</span>
+          </button>
+        </div>
+        <div class="search-options">
+          <label class="option-label" for="post-count">抓取帖子数量</label>
+          <div class="post-count-control">
+            <button class="count-btn" onclick="adjustPostCount(-1)">−</button>
+            <input id="post-count" type="number" value="3" min="1" max="20" readonly />
+            <button class="count-btn" onclick="adjustPostCount(1)">+</button>
+          </div>
+          <span class="option-divider"></span>
+          <label class="option-label" for="min-likes">最低点赞数</label>
+          <div class="post-count-control">
+            <button class="count-btn" onclick="adjustMinLikes(-1000)">−</button>
+            <input id="min-likes" type="number" value="0" min="0" readonly />
+            <button class="count-btn" onclick="adjustMinLikes(1000)">+</button>
+          </div>
+          <span class="option-hint" id="min-likes-hint">不过滤</span>
+        </div>
+        <div class="search-tags">
+          <span class="tag-label">快速选择：</span>
+          <button class="quick-tag" onclick="setQuery('降噪耳机')">降噪耳机</button>
+          <button class="quick-tag" onclick="setQuery('笔记本支架')">笔记本支架</button>
+          <button class="quick-tag" onclick="setQuery('人体工学椅')">人体工学椅</button>
+          <button class="quick-tag" onclick="setQuery('防晒霜')">防晒霜</button>
+        </div>
+      </section>
+
+      <!-- ② Agent 执行面板（调研过程中显示） -->
+      <section class="research-panel hidden" id="research-panel">
+
+        <!-- 查询信息头 -->
+        <div class="research-header">
+          <div class="research-query-label">正在调研</div>
+          <div class="research-query-text" id="research-query-text"></div>
+          <button class="cancel-btn" id="cancel-btn" onclick="cancelResearch()">取消</button>
+        </div>
+
+        <div class="research-body">
+          <!-- Agent 时间线 -->
+          <div class="timeline-card">
+            <div class="timeline-card-title">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+              </svg>
+              Agent 执行流水线
+            </div>
+
+            <div class="timeline-steps" id="timeline-steps">
+
+              <div class="step" id="step-KeywordGenerator" data-status="pending">
+                <div class="step-left">
+                  <div class="step-icon-wrap">
+                    <span class="step-emoji">🔍</span>
+                    <div class="step-pulse"></div>
+                  </div>
+                  <div class="step-line"></div>
+                </div>
+                <div class="step-right">
+                  <div class="step-name">搜索准备</div>
+                  <div class="step-msg" id="msg-KeywordGenerator">等待中...</div>
+                  <div class="step-result" id="result-KeywordGenerator"></div>
+                </div>
+                <div class="step-badge">
+                  <span class="badge-pending">等待</span>
+                  <span class="badge-running">运行中</span>
+                  <span class="badge-done">完成</span>
+                </div>
+              </div>
+
+              <div class="step" id="step-PostSearcher" data-status="pending">
+                <div class="step-left">
+                  <div class="step-icon-wrap">
+                    <span class="step-emoji">📊</span>
+                    <div class="step-pulse"></div>
+                  </div>
+                  <div class="step-line"></div>
+                </div>
+                <div class="step-right">
+                  <div class="step-name">热帖搜索</div>
+                  <div class="step-msg" id="msg-PostSearcher">等待中...</div>
+                  <div class="step-result" id="result-PostSearcher"></div>
+                </div>
+                <div class="step-badge">
+                  <span class="badge-pending">等待</span>
+                  <span class="badge-running">运行中</span>
+                  <span class="badge-done">完成</span>
+                </div>
+              </div>
+
+              <div class="step" id="step-CommentExtractor" data-status="pending">
+                <div class="step-left">
+                  <div class="step-icon-wrap">
+                    <span class="step-emoji">💬</span>
+                    <div class="step-pulse"></div>
+                  </div>
+                  <div class="step-line"></div>
+                </div>
+                <div class="step-right">
+                  <div class="step-name">评论区抓取</div>
+                  <div class="step-msg" id="msg-CommentExtractor">等待中...</div>
+                  <div class="step-result" id="result-CommentExtractor"></div>
+                </div>
+                <div class="step-badge">
+                  <span class="badge-pending">等待</span>
+                  <span class="badge-running">运行中</span>
+                  <span class="badge-done">完成</span>
+                </div>
+              </div>
+
+              <div class="step" id="step-PostSummarizer" data-status="pending">
+                <div class="step-left">
+                  <div class="step-icon-wrap">
+                    <span class="step-emoji">🤖</span>
+                    <div class="step-pulse"></div>
+                  </div>
+                  <div class="step-line"></div>
+                </div>
+                <div class="step-right">
+                  <div class="step-name">AI 内容总结</div>
+                  <div class="step-msg" id="msg-PostSummarizer">等待中...</div>
+                  <div class="step-result" id="result-PostSummarizer"></div>
+                </div>
+                <div class="step-badge">
+                  <span class="badge-pending">等待</span>
+                  <span class="badge-running">运行中</span>
+                  <span class="badge-done">完成</span>
+                </div>
+              </div>
+
+              <div class="step" id="step-NeedsAnalyzer" data-status="pending">
+                <div class="step-left">
+                  <div class="step-icon-wrap">
+                    <span class="step-emoji">🧠</span>
+                    <div class="step-pulse"></div>
+                  </div>
+                  <div class="step-line"></div>
+                </div>
+                <div class="step-right">
+                  <div class="step-name">需求痛点分析</div>
+                  <div class="step-msg" id="msg-NeedsAnalyzer">等待中...</div>
+                  <div class="step-result" id="result-NeedsAnalyzer"></div>
+                </div>
+                <div class="step-badge">
+                  <span class="badge-pending">等待</span>
+                  <span class="badge-running">运行中</span>
+                  <span class="badge-done">完成</span>
+                </div>
+              </div>
+
+              <div class="step last" id="step-ReportGenerator" data-status="pending">
+                <div class="step-left">
+                  <div class="step-icon-wrap">
+                    <span class="step-emoji">📝</span>
+                    <div class="step-pulse"></div>
+                  </div>
+                </div>
+                <div class="step-right">
+                  <div class="step-name">报告生成</div>
+                  <div class="step-msg" id="msg-ReportGenerator">等待中...</div>
+                  <div class="step-result" id="result-ReportGenerator"></div>
+                </div>
+                <div class="step-badge">
+                  <span class="badge-pending">等待</span>
+                  <span class="badge-running">运行中</span>
+                  <span class="badge-done">完成</span>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+          <!-- 实时日志流 -->
+          <div class="log-card">
+            <div class="log-card-title">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                <polyline points="14 2 14 8 20 8"/>
+              </svg>
+              实时执行日志
+            </div>
+            <div class="log-stream" id="log-stream">
+              <div class="log-placeholder">日志将在此处实时显示...</div>
+            </div>
+          </div>
+        </div>
+
+      </section>
+
+      <!-- ③ 报告展示面板（完成后显示） -->
+      <section class="report-panel hidden" id="report-panel">
+        <div class="report-panel-header">
+          <div class="report-panel-meta">
+            <div class="report-panel-tag">✅ 调研完成</div>
+            <h2 class="report-panel-title" id="report-panel-title"></h2>
+            <div class="report-panel-info" id="report-panel-info"></div>
+          </div>
+          <div class="report-panel-actions">
+            <button class="action-btn secondary" id="new-research-btn" onclick="newResearch()">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+              </svg>
+              新建调研
+            </button>
+            <button class="action-btn primary" id="download-btn" onclick="downloadReport()">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+              </svg>
+              下载报告
+            </button>
+          </div>
+        </div>
+        <div class="report-content-wrap">
+          <div class="markdown-body" id="report-markdown"></div>
+        </div>
+      </section>
+
+    </div><!-- /content-area -->
+  </main>
+</div>
+
+<!-- Toast 通知 -->
+<div class="toast" id="toast"></div>
+
+<!-- marked.js for Markdown rendering -->
+<script src="https://cdn.jsdelivr.net/npm/marked@9/marked.min.js"></script>
+<script src="/static/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,64 @@
+# ── Python ──────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg
+*.egg-info/
+.eggs/
+dist/
+build/
+*.so
+*.whl
+
+# ── 虚拟环境 ────────────────────────────────────────
+.venv/
+venv/
+env/
+ENV/
+.env.local
+
+# ── 环境变量（含密钥，绝不提交） ─────────────────────
+.env
+*.env
+!.env.example       # 示例文件可提交
+
+# ── 调研报告输出（本地生成产物，不纳入版本控制）─────
+reports/
+
+# ── Spider_XHS-master 依赖与临时文件 ─────────────────
+Spider_XHS-master/node_modules/
+Spider_XHS-master/.env
+Spider_XHS-master/*.log
+Spider_XHS-master/downloads/
+Spider_XHS-master/data/
+Spider_XHS-master/datas/        # 爬取的媒体文件与数据，不纳入版本控制
+Spider_XHS-master/output/
+
+# ── 日志 ─────────────────────────────────────────────
+*.log
+logs/
+
+# ── IDE / 编辑器 ─────────────────────────────────────
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# ── macOS ────────────────────────────────────────────
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon?
+._*
+
+# ── pytest / 测试覆盖率 ───────────────────────────────
+.pytest_cache/
+.coverage
+htmlcov/
+
+# ── mypy / ruff 缓存 ──────────────────────────────────
+.mypy_cache/
+.ruff_cache/
