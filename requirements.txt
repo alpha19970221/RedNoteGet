@@ -1,0 +1,18 @@
+# ── FastAPI & Web UI ────────────────────
+fastapi
+uvicorn
+sse-starlette
+
+# ── LLM & Agent Framework ───────────────
+langchain
+langchain-openai
+langgraph
+pydantic
+python-dotenv
+
+# ── Spider_XHS-master Dependencies ──────
+PyExecJS
+requests
+loguru
+retry
+openpyxl
